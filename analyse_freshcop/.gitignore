@@ -1,0 +1,9 @@
+# Sorties générées (reproductibles via run_analysis.py)
+sorties/tableaux/
+sorties/figures/
+
+# Python
+__pycache__/
+*.pyc
+.pytest_cache/
+.venv/
