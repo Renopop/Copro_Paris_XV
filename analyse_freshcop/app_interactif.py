@@ -218,6 +218,61 @@ def fig_temperatures(res, h) -> plt.Figure:
     return fig
 
 
+def fig_temp_capacite(res, h) -> plt.Figure:
+    """Deux lectures : bénéfice du froid, puis dépassement de consigne zoomé.
+
+    Panneau haut : sans rafraîchissement (la température s'envole) vs avec la
+    plus grande capacité (la consigne est tenue) — le bénéfice du réseau froid.
+    Panneau bas : dépassement de consigne (°C) pour chaque capacité — l'écart
+    entre 2 / 2,5 / 3 MW n'est visible qu'ici, aux heures de saturation.
+    """
+    caps = res["temperatures_capacite"]
+    consigne = res["consigne_moyenne"]
+    fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(11, 5.4), sharex=True,
+                                   gridspec_kw={"height_ratios": [2, 1]})
+    # -- Panneau haut : bénéfice du rafraîchissement --
+    cap_max = max(caps)
+    ax1.plot(res["temps"], res["temperature_focus"], lw=0.8, color="#999",
+             alpha=0.85, label="Sans rafraîchissement")
+    ax1.plot(res["temps"], caps[cap_max], lw=1.1, color="#1f77b4",
+             label=f"Avec {cap_max:g} MW")
+    ax1.plot(res["temps"], consigne, lw=0.8, ls=":", color="#333",
+             label="Consigne moyenne")
+    ax1.set_ylabel("T intérieure (°C)")
+    ax1.set_title("Température de résidence : effet du rafraîchissement")
+    ax1.legend(loc="upper left", fontsize=8)
+    ax1.grid(alpha=0.3)
+    # -- Panneau bas : dépassement de consigne par capacité --
+    couleurs = plt.cm.autumn(np.linspace(0, 0.7, len(caps)))
+    for (cap, T), col in zip(caps.items(), couleurs):
+        exces = np.maximum(T - consigne, 0.0)
+        heures = int(np.sum(exces > 1e-3))
+        ax2.plot(res["temps"], exces, lw=1.1, color=col,
+                 label=f"{cap:g} MW — {heures} h de dépassement")
+    ax2.set_ylabel("Dépassement\nde consigne (°C)")
+    ax2.set_title("Écart au-dessus de la consigne (heures de saturation)")
+    ax2.legend(loc="upper left", fontsize=8)
+    ax2.grid(alpha=0.3)
+    fig.tight_layout()
+    return fig
+
+
+def fig_puissance_zone(res) -> plt.Figure:
+    """Puissance froid horaire appelée par zone (séjour / chambres / secondaires)."""
+    fig, ax = plt.subplots(figsize=(11, 3.8))
+    couleurs = {"Séjour": "#1f77b4", "Chambres": "#d62728",
+                "Pièces secondaires": "#2ca02c"}
+    noms = list(res["puissance_zone"].keys())
+    series = [res["puissance_zone"][n] for n in noms]
+    ax.stackplot(res["temps"], *series, labels=noms,
+                 colors=[couleurs.get(n, None) for n in noms], alpha=0.85)
+    ax.set_ylabel("Puissance froid (MW)")
+    ax.set_title("Puissance appelée par zone — les chambres pilotent les pointes")
+    ax.legend(loc="upper left", fontsize=8)
+    ax.grid(alpha=0.3)
+    return fig
+
+
 def fig_calibration(res) -> plt.Figure:
     """Trajectoire de calibration : température mesurée vs modèle RC."""
     m = res["modele"]
@@ -315,6 +370,8 @@ def main():
         _df(cza, _fmt(res["contribution_zones"]))
         czb.subheader("Effet du vitrage (§4.3.10)")
         _df(czb, _fmt(res["contribution_vitrage"]))
+        st.subheader("Puissance appelée par zone (§4.3.9)")
+        st.pyplot(fig_puissance_zone(res))
         st.subheader("Effet du pilotage réactif vs anticipatif (§4.3.12)")
         _df(st, _fmt(res["comparaison_pilotage"]))
 
@@ -323,6 +380,11 @@ def main():
         st.pyplot(fig_temperatures(res, h))
         st.caption("Température intérieure simulée sans rafraîchissement, sous "
                    "les scénarios climatiques, comparée aux cibles de confort.")
+        st.subheader("Température avec rafraîchissement selon la capacité installée")
+        st.pyplot(fig_temp_capacite(res, h))
+        st.caption("Sur le scénario retenu : une capacité suffisante tient la "
+                   "consigne ; une capacité trop juste laisse la température "
+                   "déborder pendant les heures de saturation.")
         st.subheader("Synthèse des températures intérieures libres")
         _df(st, _fmt(res["temperatures_libres"], "%.2f"))
         st.subheader("Dépassement des cibles par zone (§4.2.3)")

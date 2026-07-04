@@ -169,6 +169,17 @@ def calculer_tout(h: Hypotheses, d: DonneesCalibration,
         for sc in config.SCENARIOS_TEMPERATURE}
     temperature_focus = simulation.temperature_libre(modele, d, h.delta_focus)
 
+    # Température de résidence rafraîchie selon la capacité installée (focus)
+    temperatures_capacite = {
+        cap: sizing.temperature_sous_capacite(
+            modele, d, h.delta_focus, cap, h.capacite_surfacique, h.mode)
+        for cap in h.capacites_installees}
+    # Consigne moyenne pondérée par la surface (référence des courbes ci-dessus)
+    consigne_moyenne = np.zeros(len(d))
+    for zc in config.ZONES:
+        consigne_moyenne += zc.part_surface * simulation.consigne_zone(
+            zc, d.heure, h.mode)
+
     return {
         "modele": modele,
         # Partie 1
@@ -203,6 +214,9 @@ def calculer_tout(h: Hypotheses, d: DonneesCalibration,
         "Text": d.Text,
         "temperatures_scenarios": temperatures_scenarios,
         "temperature_focus": temperature_focus,
+        "temperatures_capacite": temperatures_capacite,
+        "consigne_moyenne": consigne_moyenne,
+        "puissance_zone": focus.puissance_zone,
         "delta_focus": h.delta_focus,
     }
 
