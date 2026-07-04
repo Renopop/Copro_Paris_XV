@@ -16,14 +16,50 @@ Lancement :
 from __future__ import annotations
 
 import os
+import subprocess
 import sys
 
+# --- Streamlit doit être installé -----------------------------------------
+try:
+    import streamlit as st
+except ModuleNotFoundError:
+    sys.exit(
+        "\n[FRESHCOP] Streamlit n'est pas installé.\n"
+        "Installez les dépendances puis relancez :\n"
+        "    pip install -r requirements.txt\n"
+        "    streamlit run app_interactif.py\n")
+
+
+def _dans_streamlit() -> bool:
+    """Vrai si le script est exécuté par le moteur Streamlit (`streamlit run`)."""
+    getter = None
+    try:
+        from streamlit.runtime.scriptrunner import get_script_run_ctx as getter
+    except Exception:
+        try:
+            from streamlit.scriptrunner import get_script_run_ctx as getter
+        except Exception:
+            return True  # détection impossible : on suppose OK (évite une boucle)
+    return getter() is not None
+
+
+# --- Auto-relance si lancé avec `python app_interactif.py` -----------------
+if not _dans_streamlit():
+    print("[FRESHCOP] Lancement via Streamlit — ouvrez l'URL affichée ci-dessous "
+          "(Ctrl+C pour arrêter).")
+    try:
+        raise SystemExit(subprocess.call(
+            [sys.executable, "-m", "streamlit", "run", os.path.abspath(__file__)]))
+    except FileNotFoundError:
+        sys.exit("[FRESHCOP] Streamlit introuvable — faites : "
+                 "pip install -r requirements.txt")
+
+# --- À partir d'ici : exécuté par Streamlit --------------------------------
 import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-import streamlit as st
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
@@ -226,32 +262,32 @@ def main():
 
     with o1:
         st.subheader("Dimensionnement par scénario climatique (§4.3.6)")
-        st.dataframe(_fmt(res["dimensionnement"]), width="stretch")
+        _df(st, _fmt(res["dimensionnement"]))
         st.subheader("Décision consolidée sur le scénario retenu (§4.4)")
-        st.dataframe(_fmt(res["decision"]), width="stretch")
+        _df(st, _fmt(res["decision"]))
 
     with o2:
         st.subheader("Marges de puissance (§4.3.7)")
-        st.dataframe(_fmt(res["marges"]), width="stretch")
+        _df(st, _fmt(res["marges"]))
         st.subheader("Heures de saturation (§4.3.8)")
-        st.dataframe(_fmt(res["saturation"], "%.0f"), width="stretch")
+        _df(st, _fmt(res["saturation"], "%.0f"))
 
     with o3:
         cza, czb = st.columns(2)
         cza.subheader("Contribution des zones (§4.3.9)")
-        cza.dataframe(_fmt(res["contribution_zones"]), width="stretch")
+        _df(cza, _fmt(res["contribution_zones"]))
         czb.subheader("Effet du vitrage (§4.3.10)")
-        czb.dataframe(_fmt(res["contribution_vitrage"]), width="stretch")
+        _df(czb, _fmt(res["contribution_vitrage"]))
         st.subheader("Effet du pilotage réactif vs anticipatif (§4.3.12)")
-        st.dataframe(_fmt(res["comparaison_pilotage"]), width="stretch")
+        _df(st, _fmt(res["comparaison_pilotage"]))
 
     with o4:
         st.subheader("Températures intérieures libres (§4.2.2)")
-        st.dataframe(_fmt(res["temperatures_libres"], "%.2f"), width="stretch")
+        _df(st, _fmt(res["temperatures_libres"], "%.2f"))
         st.subheader("Dépassement des cibles par zone (§4.2.3)")
-        st.dataframe(_fmt(res["depassement"], "%.2f"), width="stretch")
+        _df(st, _fmt(res["depassement"], "%.2f"))
         st.subheader("Nuits chaudes — métrique V3 (§4.2.8)")
-        st.dataframe(_fmt(res["nuits_chaudes"], "%.1f"), width="stretch")
+        _df(st, _fmt(res["nuits_chaudes"], "%.1f"))
 
     with o5:
         m = res["modele"]
@@ -259,12 +295,11 @@ def main():
                  f"a={m.a:.5f}, b={m.b:.7f}, c={m.c:.5f} · "
                  f"τ={m.tau_h:.0f} h · RMSE={m.rmse:.2f} °C · R²={m.r2:.2f}")
         st.subheader("Conversion vers grandeurs physiques (§4.9)")
-        st.dataframe(_fmt(res["conversion"], "%.2f"), width="stretch")
+        _df(st, _fmt(res["conversion"], "%.2f"))
         st.subheader("Sensibilité du dimensionnement (capacité × prudence) (§4.3.11)")
-        st.dataframe(_fmt(res["sensibilite_dimensionnement"], "%.2f"),
-                     width="stretch")
+        _df(st, _fmt(res["sensibilite_dimensionnement"], "%.2f"))
         st.subheader("Sensibilité au pilotage des chambres (§4.2.9)")
-        st.dataframe(_fmt(res["sensibilite_chambres"], "%.2f"), width="stretch")
+        _df(st, _fmt(res["sensibilite_chambres"], "%.2f"))
 
     st.divider()
     st.caption("Pré-dimensionnement — non substituable à une étude thermique "
@@ -273,6 +308,14 @@ def main():
 
 def _fmt(df: pd.DataFrame, fmt: str = "%.2f"):
     return df.style.format(fmt, na_rep="—")
+
+
+def _df(box, styled) -> None:
+    """Affiche un tableau en pleine largeur, compatible toutes versions Streamlit."""
+    try:
+        box.dataframe(styled, width="stretch")        # Streamlit récent
+    except TypeError:
+        box.dataframe(styled, use_container_width=True)  # versions antérieures
 
 
 if __name__ == "__main__":
