@@ -40,6 +40,7 @@ class ResultatPuissance:
     p95_actives: float               # P95 des heures actives
     energie_zone: dict               # MWh par zone
     energie_vitrage: dict            # MWh par type de vitrage
+    puissance_zone: dict = field(default_factory=dict)  # MW horaire par zone
 
 
 def puissance_froid(modele: ModeleRC, d: DonneesCalibration, delta_T: float,
@@ -58,6 +59,7 @@ def puissance_froid(modele: ModeleRC, d: DonneesCalibration, delta_T: float,
     Q = np.zeros(n)
     e_zone = {z.nom: 0.0 for z in config.ZONES}
     e_vitrage = {v.nom: 0.0 for v in config.VITRAGES}
+    q_zone = {z.nom: np.zeros(n) for z in config.ZONES}  # MW horaire par zone
 
     a, b, c = modele.a, modele.b, modele.c
     for zone in config.ZONES:
@@ -73,6 +75,7 @@ def puissance_froid(modele: ModeleRC, d: DonneesCalibration, delta_T: float,
                 if T_next > cible_next:
                     q = Ci * (T_next - cible_next) / config.PAS_HORAIRE_H  # MW
                     Q[k + 1] += q
+                    q_zone[zone.nom][k + 1] += q
                     e_zone[zone.nom] += q * config.PAS_HORAIRE_H
                     e_vitrage[vit.nom] += q * config.PAS_HORAIRE_H
                     Tc = cible_next  # ramené à la consigne
@@ -88,7 +91,37 @@ def puissance_froid(modele: ModeleRC, d: DonneesCalibration, delta_T: float,
         p95_actives=float(np.percentile(actives, 95)) if actives.size else 0.0,
         energie_zone=e_zone,
         energie_vitrage=e_vitrage,
+        puissance_zone=q_zone,
     )
+
+
+# --------------------------------------------------------------------------
+# Température de résidence sous contrainte de capacité installée
+# --------------------------------------------------------------------------
+def temperature_sous_capacite(modele: ModeleRC, d: DonneesCalibration,
+                              delta_T: float, capacite_MW: float,
+                              capacite_surfacique: float = config.CAPACITE_SURFACIQUE_REF,
+                              mode: str = "reactif") -> np.ndarray:
+    """Température moyenne de résidence rafraîchie sous une capacité installée.
+
+    Lecture : tant que la puissance appelée reste sous la capacité installée, la
+    consigne moyenne pondérée par la surface est tenue. Aux heures de saturation
+    (puissance appelée > capacité), la fraction de froid non fournie fait monter
+    la température de ``déficit·Δt / C_total`` au-dessus de la consigne.
+
+    C'est la traduction en température de la marge/saturation (§4.3.7-4.3.8) :
+    une capacité suffisante maintient la consigne ; une capacité trop juste
+    laisse la température déborder précisément pendant les nuits chaudes.
+    """
+    r = puissance_froid(modele, d, delta_T, capacite_surfacique, mode)
+    C_total = config.capacite_totale_MWh_par_K(capacite_surfacique)  # MWh/K
+    # consigne moyenne pondérée par la surface des zones
+    consigne = np.zeros(len(d))
+    for zone in config.ZONES:
+        consigne += zone.part_surface * consigne_zone(zone, d.heure, mode)
+    deficit = np.maximum(r.puissance - capacite_MW, 0.0)          # MW non fournis
+    hausse = deficit * config.PAS_HORAIRE_H / C_total             # K
+    return consigne + hausse
 
 
 # --------------------------------------------------------------------------

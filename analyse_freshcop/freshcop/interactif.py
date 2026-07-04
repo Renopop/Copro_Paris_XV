@@ -161,6 +161,25 @@ def calculer_tout(h: Hypotheses, d: DonneesCalibration,
     cdc_reac = sizing.courbe_duree_charge(modele, d, h.delta_focus, "reactif")
     cdc_anti = sizing.courbe_duree_charge(modele, d, h.delta_focus, "anticipatif")
 
+    # --- Températures modélisées ---
+    # Trajectoire de calibration (mesurée vs modèle RC) + températures libres
+    # projetées sous les scénarios climatiques de référence et le focus.
+    temperatures_scenarios = {
+        sc.nom: simulation.temperature_libre(modele, d, sc.delta_T)
+        for sc in config.SCENARIOS_TEMPERATURE}
+    temperature_focus = simulation.temperature_libre(modele, d, h.delta_focus)
+
+    # Température de résidence rafraîchie selon la capacité installée (focus)
+    temperatures_capacite = {
+        cap: sizing.temperature_sous_capacite(
+            modele, d, h.delta_focus, cap, h.capacite_surfacique, h.mode)
+        for cap in h.capacites_installees}
+    # Consigne moyenne pondérée par la surface (référence des courbes ci-dessus)
+    consigne_moyenne = np.zeros(len(d))
+    for zc in config.ZONES:
+        consigne_moyenne += zc.part_surface * simulation.consigne_zone(
+            zc, d.heure, h.mode)
+
     return {
         "modele": modele,
         # Partie 1
@@ -189,6 +208,16 @@ def calculer_tout(h: Hypotheses, d: DonneesCalibration,
         "Q_focus": Q_focus,
         "courbe_duree_reactif": cdc_reac,
         "courbe_duree_anticipatif": cdc_anti,
+        # Températures modélisées
+        "Tint_mesure": d.Tint,
+        "Tint_modele": modele.simulation,
+        "Text": d.Text,
+        "temperatures_scenarios": temperatures_scenarios,
+        "temperature_focus": temperature_focus,
+        "temperatures_capacite": temperatures_capacite,
+        "consigne_moyenne": consigne_moyenne,
+        "puissance_zone": focus.puissance_zone,
+        "delta_focus": h.delta_focus,
     }
 
 
