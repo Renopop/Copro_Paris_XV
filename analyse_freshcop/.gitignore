@@ -1,6 +1,5 @@
 # Sorties générées (reproductibles via run_analysis.py)
-sorties/tableaux/
-sorties/figures/
+sorties/
 
 # Python
 __pycache__/
