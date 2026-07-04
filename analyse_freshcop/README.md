@@ -33,7 +33,29 @@ python run_analysis.py --csv "../T appart mai - jin 26.csv" \
 Les résultats sont écrits dans `sorties/tableaux/` (CSV) et `sorties/figures/`
 (PNG). Chaque tableau affiché est comparé aux valeurs documentées.
 
-Tests de non-régression :
+### Module interactif (recommandé)
+
+Une application permet de **modifier toutes les hypothèses** (répartition des
+vitrages, parts de surface et consignes par zone, capacité thermique, scénarios
+climatiques, pilotage, capacités installées, seuils de nuits chaudes...) et de
+voir **recalculer en direct** le dimensionnement, les marges et le confort :
+
+```bash
+streamlit run app_interactif.py
+```
+
+L'interface s'ouvre dans le navigateur. La barre latérale regroupe les
+hypothèses par thème ; le bandeau supérieur affiche les indicateurs clés (pic,
+énergie, marge, part chambres, capacité recommandée) et cinq onglets détaillent
+dimensionnement, marges/saturation, contributions, confort et calibration. Un
+bouton « Réinitialiser » restaure les valeurs du document.
+
+> La logique de calcul du module interactif est isolée dans
+> `freshcop/interactif.py` (sans dépendance à l'interface), et réutilise le même
+> moteur validé par les tests — les résultats par défaut reproduisent le
+> document (pic 2050 = 2,65 MW).
+
+### Tests de non-régression
 
 ```bash
 pytest -q
@@ -129,9 +151,11 @@ analyse_freshcop/
 │   ├── calibration.py   # identification RC + conversion physique
 │   ├── simulation.py    # températures libres, zones, nuits chaudes
 │   ├── sizing.py        # puissance froid, marges, saturation, sensibilités
+│   ├── interactif.py    # hypothèses modifiables + calcul complet (logique pure)
 │   └── figures.py       # figures matplotlib
 ├── tests/test_validation.py   # 15 tests de non-régression vs document
-├── run_analysis.py      # exécution complète
+├── run_analysis.py      # exécution complète (rapport texte + CSV + figures)
+├── app_interactif.py    # module interactif Streamlit (toutes hypothèses)
 ├── requirements.txt
 └── sorties/             # tableaux CSV + figures PNG (générés)
 ```

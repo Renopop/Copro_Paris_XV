@@ -49,11 +49,16 @@ CAPACITES_SURFACIQUES_SENSIBILITE = (80.0, 120.0, 165.0)
 
 
 def capacite_totale_MWh_par_K(capacite_surfacique_Wh_m2K: float,
-                              surface_m2: float = SURFACE_TOTALE_M2) -> float:
+                              surface_m2: float | None = None) -> float:
     """C = Surface × capacité surfacique (§4.9, Annexe A).
 
     Wh/m².K × m² = Wh/K ; conversion en MWh/K (÷ 1e6).
+
+    ``surface_m2=None`` lit la surface courante du module (permet au module
+    interactif de modifier la surface à la volée sans refactorer le moteur).
     """
+    if surface_m2 is None:
+        surface_m2 = SURFACE_TOTALE_M2
     return capacite_surfacique_Wh_m2K * surface_m2 / 1.0e6
 
 

@@ -227,8 +227,8 @@ def main(argv=None) -> int:
     print("    • 2,5 MW → limite : proche du pic, sans réserve robuste.")
     print("    • 3 MW   → enveloppe cohérente : marge faible mais positive, "
           "0 h de saturation.")
-    print("  Le chiffre 1,19 MW (lecture moyenne) est écarté au profit du pic "
-          "réactif dimensionnant.")
+    print("  Lecture fondée sur le pic horaire réactif dimensionnant (chambres "
+          "à 24 °C la nuit), et non sur une moyenne.")
 
     # ======================================================================
     if cfg.generer_figures:
