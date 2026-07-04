@@ -38,11 +38,23 @@ Les résultats sont écrits dans `sorties/tableaux/` (CSV) et `sorties/figures/`
 Une application permet de **modifier toutes les hypothèses** (répartition des
 vitrages, parts de surface et consignes par zone, capacité thermique, scénarios
 climatiques, pilotage, capacités installées, seuils de nuits chaudes...) et de
-voir **recalculer en direct** le dimensionnement, les marges et le confort :
+voir **recalculer en direct** le dimensionnement, les marges et le confort.
+
+**Windows — le plus simple : double-cliquez sur `launch.bat`.**
+Il installe les dépendances au premier lancement puis ouvre l'application dans
+le navigateur.
+
+En ligne de commande (tous systèmes) :
 
 ```bash
 streamlit run app_interactif.py
 ```
+
+> ⚠️ Il faut bien lancer `streamlit run app_interactif.py`, **pas**
+> `python app_interactif.py`. Si vous utilisez `python` par erreur, le message
+> *« missing ScriptRunContext »* apparaît : l'application relance désormais
+> Streamlit automatiquement, mais la bonne commande reste `streamlit run`
+> (ou `launch.bat` sous Windows).
 
 L'interface s'ouvre dans le navigateur. La barre latérale regroupe les
 hypothèses par thème ; le bandeau supérieur affiche les indicateurs clés (pic,
@@ -156,6 +168,7 @@ analyse_freshcop/
 ├── tests/test_validation.py   # 15 tests de non-régression vs document
 ├── run_analysis.py      # exécution complète (rapport texte + CSV + figures)
 ├── app_interactif.py    # module interactif Streamlit (toutes hypothèses)
+├── launch.bat           # lancement Windows en double-clic
 ├── requirements.txt
 └── sorties/             # tableaux CSV + figures PNG (générés)
 ```
