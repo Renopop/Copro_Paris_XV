@@ -44,7 +44,8 @@ def _dans_streamlit() -> bool:
 
 
 # --- Auto-relance si lancé avec `python app_interactif.py` -----------------
-if not _dans_streamlit():
+# (uniquement en lancement direct : ne se déclenche pas à l'import du module)
+if __name__ == "__main__" and not _dans_streamlit():
     print("[FRESHCOP] Lancement via Streamlit — ouvrez l'URL affichée ci-dessous "
           "(Ctrl+C pour arrêter).")
     try:
@@ -199,6 +200,42 @@ def fig_puissance(res, h) -> plt.Figure:
     return fig
 
 
+def fig_temperatures(res, h) -> plt.Figure:
+    """Courbes de températures intérieures modélisées (libres, sans froid)."""
+    fig, ax = plt.subplots(figsize=(11, 3.8))
+    couleurs = {"2026 sans froid": "#2ca02c",
+                "2050 +2,2 °C sans froid": "#ff7f0e",
+                "2100 +3,2 °C sans froid": "#d62728"}
+    for nom, T in res["temperatures_scenarios"].items():
+        ax.plot(res["temps"], T, lw=0.9, label=nom, color=couleurs.get(nom))
+    # consignes de référence
+    ax.axhline(26, color="#333", ls=":", lw=0.9, label="Cible séjour 26 °C")
+    ax.axhline(24, color="gray", ls=":", lw=0.9, label="Cible chambres 24 °C")
+    ax.set_ylabel("T intérieure modélisée (°C)")
+    ax.set_title("Températures intérieures modélisées sans rafraîchissement")
+    ax.legend(loc="upper left", ncol=2, fontsize=8)
+    ax.grid(alpha=0.3)
+    return fig
+
+
+def fig_calibration(res) -> plt.Figure:
+    """Trajectoire de calibration : température mesurée vs modèle RC."""
+    m = res["modele"]
+    fig, ax = plt.subplots(figsize=(11, 3.6))
+    ax.plot(res["temps"], res["Tint_mesure"], lw=1.0, color="#d62728",
+            label="Mesurée (moyenne AB/CD)")
+    ax.plot(res["temps"], res["Tint_modele"], lw=1.0, ls="--", color="#1f77b4",
+            label=f"Modèle RC ({m.methode})")
+    ax.plot(res["temps"], res["Text"], lw=0.6, color="#999", alpha=0.7,
+            label="Extérieure")
+    ax.set_ylabel("Température (°C)")
+    ax.set_title(f"Calibration — RMSE {m.rmse:.2f} °C · R² {m.r2:.2f} · "
+                 f"τ {m.tau_h:.0f} h")
+    ax.legend(loc="upper left", fontsize=8)
+    ax.grid(alpha=0.3)
+    return fig
+
+
 def fig_duree(res, h) -> plt.Figure:
     fig, ax = plt.subplots(figsize=(6, 3.6))
     ax.plot(res["courbe_duree_reactif"], lw=1.3,
@@ -282,7 +319,11 @@ def main():
         _df(st, _fmt(res["comparaison_pilotage"]))
 
     with o4:
-        st.subheader("Températures intérieures libres (§4.2.2)")
+        st.subheader("Courbes de températures modélisées (§4.2.2)")
+        st.pyplot(fig_temperatures(res, h))
+        st.caption("Température intérieure simulée sans rafraîchissement, sous "
+                   "les scénarios climatiques, comparée aux cibles de confort.")
+        st.subheader("Synthèse des températures intérieures libres")
         _df(st, _fmt(res["temperatures_libres"], "%.2f"))
         st.subheader("Dépassement des cibles par zone (§4.2.3)")
         _df(st, _fmt(res["depassement"], "%.2f"))
@@ -294,6 +335,8 @@ def main():
         st.write(f"**Modèle retenu : {m.methode}** — "
                  f"a={m.a:.5f}, b={m.b:.7f}, c={m.c:.5f} · "
                  f"τ={m.tau_h:.0f} h · RMSE={m.rmse:.2f} °C · R²={m.r2:.2f}")
+        st.subheader("Trajectoire de calibration : mesuré vs modèle (§4.7)")
+        st.pyplot(fig_calibration(res))
         st.subheader("Conversion vers grandeurs physiques (§4.9)")
         _df(st, _fmt(res["conversion"], "%.2f"))
         st.subheader("Sensibilité du dimensionnement (capacité × prudence) (§4.3.11)")
@@ -307,7 +350,14 @@ def main():
 
 
 def _fmt(df: pd.DataFrame, fmt: str = "%.2f"):
-    return df.style.format(fmt, na_rep="—")
+    """Applique une précision décimale UNIQUEMENT aux colonnes numériques.
+
+    On utilise le paramètre ``precision`` de pandas (et non un format ``%``,
+    qui s'afficherait littéralement) : les colonnes texte (consignes, parts...)
+    restent intactes et les valeurs manquantes deviennent « — ».
+    """
+    precision = int(fmt.rstrip("f").rsplit(".", 1)[-1])   # "%.2f"→2, "%.0f"→0
+    return df.style.format(na_rep="—", precision=precision)
 
 
 def _df(box, styled) -> None:

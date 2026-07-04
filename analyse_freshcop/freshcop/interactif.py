@@ -161,6 +161,14 @@ def calculer_tout(h: Hypotheses, d: DonneesCalibration,
     cdc_reac = sizing.courbe_duree_charge(modele, d, h.delta_focus, "reactif")
     cdc_anti = sizing.courbe_duree_charge(modele, d, h.delta_focus, "anticipatif")
 
+    # --- Températures modélisées ---
+    # Trajectoire de calibration (mesurée vs modèle RC) + températures libres
+    # projetées sous les scénarios climatiques de référence et le focus.
+    temperatures_scenarios = {
+        sc.nom: simulation.temperature_libre(modele, d, sc.delta_T)
+        for sc in config.SCENARIOS_TEMPERATURE}
+    temperature_focus = simulation.temperature_libre(modele, d, h.delta_focus)
+
     return {
         "modele": modele,
         # Partie 1
@@ -189,6 +197,13 @@ def calculer_tout(h: Hypotheses, d: DonneesCalibration,
         "Q_focus": Q_focus,
         "courbe_duree_reactif": cdc_reac,
         "courbe_duree_anticipatif": cdc_anti,
+        # Températures modélisées
+        "Tint_mesure": d.Tint,
+        "Tint_modele": modele.simulation,
+        "Text": d.Text,
+        "temperatures_scenarios": temperatures_scenarios,
+        "temperature_focus": temperature_focus,
+        "delta_focus": h.delta_focus,
     }
 
 
